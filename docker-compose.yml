@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    networks:
+      - mailbox_app
+    volumes:
+      - .:/opt/app
+      - rubygems:/usr/local/bundle
+    depends_on:
+      - db
+      - redis
+    command: bash -c 'bin/setup && rails server -b 0.0.0.0 -p 3000'
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - /var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    networks:
+      - mailbox_app
+  redis:
+    image: redis:6.2
+    ports:
+      - '6379:6379'
+    networks:
+      - mailbox_app
+  sidekiq:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bundle exec sidekiq
+    volumes:
+      - .:/opt/app
+    environment:
+      NOAUTH: 1
+      REDIS_URL: redis://redis:6379/0
+    networks:
+      - mailbox_app
+    depends_on:
+      - db
+      - redis
+volumes:
+  rubygems:
+networks:
+  mailbox_app:
+    name: mailbox_app
+    external: true
